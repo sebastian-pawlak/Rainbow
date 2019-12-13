@@ -1,0 +1,164 @@
+mads 2.0.6 build 58 (28 Jan 17)
+Source: C:\jac\wudsn\Workspace\RAINBOW\RAINBOW.ASM
+     1 				; "Rainbow", Atari XL/XE Intro 256B
+     2 				; code by tr1x
+     3 				; requirements: original Atari XL/XE 64KB PAL
+     4 				; version: 1.0
+     5 				; release date: 2019-12-07
+     6
+     7 					org $0600
+     8
+     9 = 0080			gtia10	equ $80		; graphics 10 (GTIA mode)
+    10 = 0012			rtclok	equ $0012
+    11 = 00CB			memdl1	equ $00cb
+    12 = 00CF			memvp1	equ $00cf
+    13 = 00D1			memvp2	equ $00d1
+    14 = 00D3			mem	equ $00d3
+    15 = 026F			gprior	equ $026f
+    16 = 4000			vidptr	equ $4000	; video memory
+    17 = 9C20			dlist	equ $9c20	; display list
+    18 = D013			colpm1	equ $d013
+    19 = D20A			random	equ $d20a
+    20 = D40A			wsync	equ $d40a
+    21 = D40B			vcount	equ $d40b
+    22 = E45C			setvbv	equ $e45c
+    23 = E462			xitvbv	equ $e462
+    24
+    25 					; prepare display list
+    26 FFFF> 0600-06DA> A2 23		ldx #<dlist+3
+    27 0602 86 CB			stx memdl1
+    28 0604 A9 9C			lda #>dlist
+    29 0606 85 CC			sta memdl1+1
+    30 0608 A0 00			ldy #<vidptr	; set y to zero
+    31 060A 84 CF			sty memvp1
+    32 060C 84 D1			sty memvp2	; for drawing horizontal bars procedure
+    33 060E A9 40			lda #>vidptr
+    34 0610 85 D0			sta memvp1+1
+    35 0612 85 D2			sta memvp2+1
+    36 0614 A2 C0			ldx #$c0
+    37 0616 A9 4F		loopa1	lda #$4f	; ANTIC command: gr.mode | address
+    38 0618 91 CB			sta (memdl1),y
+    39 061A E6 CB			inc memdl1
+    40 					;bne skipa1	; not needed,
+    41 					;inc memdl1+1	; ..since does not occur in practice
+    42 061C A5 CF		skipa1	lda memvp1
+    43 061E 91 CB			sta (memdl1),y
+    44 0620 E6 CB			inc memdl1
+    45 0622 D0 02			bne skipa2
+    46 0624 E6 CC			inc memdl1+1
+    47 0626 A5 D0		skipa2	lda memvp1+1
+    48 0628 91 CB			sta (memdl1),y
+    49 062A E6 CB			inc memdl1
+    50 062C D0 02			bne skipa3
+    51 062E E6 CC			inc memdl1+1
+    52 0630 A5 CF		skipa3	lda memvp1
+    53 0632 18				clc
+    54 0633 69 40			adc #$40
+    55 0635 85 CF			sta memvp1
+    56 0637 D0 0C			bne skipa4
+    57 0639 E6 D0			inc memvp1+1
+    58 063B A5 D0			lda memvp1+1
+    59 063D C9 42			cmp #$42
+    60 063F D0 04			bne skipa4
+    61 0641 A9 40			lda #$40
+    62 0643 85 D0			sta memvp1+1
+    63 0645 CA			skipa4	dex
+    64 0646 D0 CE			bne loopa1
+    65
+    66 					;lda #$41	; jump to the beginning of display list
+    67 					;sta dlist+$243	; ..is not necessary
+    68 					;lda #<dlist
+    69 					;sta dlist+$244
+    70 					;lda #>dlist
+    71 					;sta dlist+$245
+    72
+    73 					; set GTIA graphics mode
+    74 0648 A9 80			lda #gtia10
+    75 064A 8D 6F 02			sta gprior
+    76
+    77 					; draw horizontal bars
+    78 064D A2 88			ldx #$88
+    79 064F A0 27		loopb1	ldy #$27
+    80 0651 98			loopb2	tya
+    81 0652 4A				lsr
+    82 0653 8A				txa
+    83 0654 B0 08			bcs skipb1
+    84 0656 38				sec
+    85 0657 E9 11			sbc #$11
+    86 0659 49 77			eor #%01110111
+    87 065B 18				clc
+    88 065C 69 11			adc #$11	
+    89 065E 91 D1		skipb1	sta (memvp2),y
+    90 0660 88				dey
+    91 0661 10 EE			bpl loopb2
+    92 0663 A5 D1			lda memvp2
+    93 					;clc		; not needed in practice
+    94 0665 69 40			adc #$40
+    95 0667 85 D1			sta memvp2
+    96 0669 D0 02			bne skipb2
+    97 066B E6 D2			inc memvp2+1
+    98 066D 8A			skipb2	txa
+    99 066E 38				sec
+   100 066F E9 11			sbc #$11
+   101 0671 AA				tax
+   102 0672 D0 DB			bne loopb1
+   103
+   104 					; color palette animation
+   105 0674 AD 0B D4		anim	lda vcount
+   106 0677 CD 0B D4		loopc1	cmp vcount
+   107 067A F0 FB			beq loopc1
+   108 067C 18				clc
+   109 067D 69 02			adc #$02
+   110 067F 29 03			and #%00000011
+   111 0681 D0 F1			bne anim
+   112 0683 8D 0A D4			sta wsync
+   113 0686 AD 0B D4			lda vcount
+   114 0689 4A				lsr
+   115 068A 4A				lsr
+   116 068B 0A				asl
+   117 068C 0A				asl
+   118 068D 0A				asl
+   119 068E 0A				asl
+   120 068F AA				tax
+   121 0690 A5 13			lda rtclok+1
+   122 0692 4A				lsr
+   123 0693 B0 14			bcs skipc1
+   124 0695 4A				lsr
+   125 0696 B0 04			bcs skipc2
+   126 0698 A6 14			ldx rtclok+2
+   127 069A 90 0D			bcc skipc1	; 1 byte less than "jmp skipc1"
+   128 069C A5 14		skipc2	lda rtclok+2
+   129 069E 0A				asl
+   130 069F 0A				asl
+   131 06A0 0A				asl
+   132 06A1 0A				asl
+   133 06A2 85 D3			sta mem
+   134 06A4 8A				txa
+   135 06A5 18				clc
+   136 06A6 65 D3			adc mem
+   137 06A8 AA				tax
+   138 06A9 8A			skipc1	txa
+   139 06AA 18				clc
+   140 06AB 69 02			adc #$02
+   141 06AD 8D 14 D0			sta colpm1+1
+   142 06B0 18				clc
+   143 06B1 69 02			adc #$02
+   144 06B3 8D 15 D0			sta colpm1+2
+   145 06B6 18				clc
+   146 06B7 69 02			adc #$02
+   147 06B9 8D 16 D0			sta colpm1+3
+   148 06BC 18				clc
+   149 06BD 69 02			adc #$02
+   150 06BF 8D 17 D0			sta colpm1+4
+   151 06C2 18				clc
+   152 06C3 69 02			adc #$02
+   153 06C5 8D 18 D0			sta colpm1+5
+   154 06C8 18				clc
+   155 06C9 69 02			adc #$02
+   156 06CB 8D 19 D0			sta colpm1+6
+   157 06CE 18				clc
+   158 06CF 69 02			adc #$02
+   159 06D1 8D 1A D0			sta colpm1+7
+   160 06D4 8A				txa
+   161 06D5 8D 13 D0			sta colpm1+0
+   162 06D8 4C 74 06			jmp anim
